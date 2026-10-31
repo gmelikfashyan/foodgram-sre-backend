@@ -1,0 +1,32 @@
+server:
+  port: 8000
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: foodgram
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${POSTGRES_DB:foodgram_db}
+    username: ${DATABASE_USER:postgres}
+    password: ${DATABASE_PASSWORD:}
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        default_batch_fetch_size: 50
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+  jackson:
+    default-property-inclusion: always
+
+app:
+  # Каталог для загружаемых изображений (в Docker это /app/media, общий том с nginx)
+  media-root: ${MEDIA_ROOT:./media}
+  media-url: /media/
+  # Соль для коротких ссылок (в Django-версии была "Testing_salt")
+  hashids-salt: ${HASHIDS_SALT:Testing_salt}
+  page-size: 6
+  max-page-size: 100
