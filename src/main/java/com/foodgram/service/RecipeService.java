@@ -231,7 +231,6 @@ public class RecipeService {
         getOr404(id);
     }
 
-    // -------------------------------------------------------------- внутреннее
 
     private Recipe getOr404(Long id) {
         return recipeRepository.findById(id).orElseThrow(ApiException::notFound);
@@ -257,7 +256,6 @@ public class RecipeService {
         return new RecipeShortDto(r.getId(), r.getName(), r.getImage(), r.getCookingTime());
     }
 
-    /** Преобразует рецепты в DTO, подтягивая связанные данные несколькими запросами (без N+1). */
     private List<RecipeDto> toDtos(List<Recipe> recipes, User viewer) {
         if (recipes.isEmpty()) {
             return List.of();
@@ -294,11 +292,6 @@ public class RecipeService {
                             Integer cookingTime) {
     }
 
-    /**
-     * Валидация тела запроса. При создании все поля обязательны; при обновлении (PATCH)
-     * необязательны name/text/cooking_time/image, но список ингредиентов обязателен
-     * (как в исходном Django-приложении).
-     */
     private Prepared validate(RecipeWriteRequest r, boolean create) {
         FieldErrors e = new FieldErrors();
 

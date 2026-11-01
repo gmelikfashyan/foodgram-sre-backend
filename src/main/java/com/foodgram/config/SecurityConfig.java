@@ -56,13 +56,13 @@ public class SecurityConfig {
                                 "/api/recipes/{id:\\d+}/get-link", "/api/recipes/{id:\\d+}/get-short-link")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/s/{hash}", "/media/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(new TokenAuthFilter(tokenRepository), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
-    /** В исходном проекте было CORS_ORIGIN_ALLOW_ALL = True. */
     @Bean
     CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cfg = new CorsConfiguration();

@@ -1,0 +1,91 @@
+# Релиз = набор образов с одним тегом IMAGE_TAG + конфигурация из .env.
+# Миграции БД выполняет отдельный одноразовый сервис migrate до старта backend.
+# Образы собирает и публикует CI (.github/workflows/main.yml); здесь ничего не собирается.
+# Откат: поставить предыдущий IMAGE_TAG и выполнить `docker compose up -d`.
+services:
+  db:
+    container_name: foodgram-db
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres:/var/lib/postgresql/data/
+    restart: unless-stopped
+
+  # S3-совместимое объектное хранилище для изображений (сторонняя служба, фактор IV).
+  # В продакшене его можно заменить управляемым S3 (AWS S3, Yandex Object Storage и т. п.),
+  # поменяв S3_ENDPOINT, S3_ACCESS_KEY, S3_SECRET_KEY в .env, — код приложения не меняется.
+  # ВНИМАНИЕ: MinIO Community Edition заархивирован (апрель 2026) и не получает обновлений безопасности;
+  # образ ниже годится для разработки и учебного стенда.
+  storage:
+    container_name: foodgram-storage
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY}
+    volumes:
+      - storage_data:/data
+    restart: unless-stopped
+
+  # Одноразовый процесс (фактор XII): применяет миграции схемы БД и завершается.
+  # Запускается из того же релиза (тот же IMAGE_TAG) и с той же конфигурацией, что и приложение.
+  # Вручную: docker compose run --rm migrate [info|validate|repair]
+  migrate:
+    container_name: foodgram-migrate
+    image: ${DOCKER_USERNAME}/foodgram_migrations:${IMAGE_TAG:?Укажите IMAGE_TAG в .env}
+    environment:
+      FLYWAY_URL: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${POSTGRES_DB}
+      FLYWAY_USER: ${DATABASE_USER}
+      FLYWAY_PASSWORD: ${DATABASE_PASSWORD}
+      FLYWAY_CONNECT_RETRIES: "30"
+    depends_on:
+      - db
+    restart: "no"
+
+  backend:
+    container_name: foodgram-backend
+    image: ${DOCKER_USERNAME}/foodgram_backend:${IMAGE_TAG:?Укажите IMAGE_TAG в .env}
+    env_file:
+      - ./.env
+    # Процесс stateless: никаких томов, файловая система только для чтения (кроме временного /tmp)
+    read_only: true
+    tmpfs:
+      - /tmp
+    depends_on:
+      db:
+        condition: service_started
+      storage:
+        condition: service_started
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  # Одноразовый контейнер: копирует собранную статику в общий том и завершается
+  frontend:
+    container_name: foodgram-frontend
+    image: ${DOCKER_USERNAME}/foodgram_frontend:${IMAGE_TAG:?Укажите IMAGE_TAG в .env}
+    volumes:
+      - frontend_build:/app/result_build/
+    restart: "no"
+
+  gateway:
+    container_name: foodgram-proxy
+    image: ${DOCKER_USERNAME}/foodgram_gateway:${IMAGE_TAG:?Укажите IMAGE_TAG в .env}
+    ports:
+      - "80:80"
+    volumes:
+      - frontend_build:/usr/share/nginx/html/:ro
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_completed_successfully
+    restart: always
+
+volumes:
+  postgres: {}
+  storage_data: {}
+  frontend_build: {}

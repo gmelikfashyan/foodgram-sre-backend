@@ -29,7 +29,6 @@ public class UserMapper {
         return toDto(user, subscribed);
     }
 
-    /** Id авторов из переданного списка, на которых подписан viewer (один запрос). */
     public Set<Long> subscribedIds(User viewer, Collection<Long> authorIds) {
         if (viewer == null || authorIds.isEmpty()) {
             return Set.of();

@@ -5,7 +5,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Накопитель ошибок валидации по полям. */
 public final class FieldErrors {
 
     public static final String REQUIRED = "Обязательное поле.";
@@ -18,7 +17,6 @@ public final class FieldErrors {
         return this;
     }
 
-    /** Произвольное (например, вложенное) значение ошибки для поля. */
     public FieldErrors put(String field, Object value) {
         map.put(field, value);
         return this;

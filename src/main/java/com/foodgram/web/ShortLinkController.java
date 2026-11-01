@@ -22,7 +22,6 @@ public class ShortLinkController {
         this.recipeService = recipeService;
     }
 
-    /** Редирект с короткой ссылки на страницу рецепта. */
     @GetMapping("/s/{hash}")
     public ResponseEntity<Void> redirect(@PathVariable String hash) {
         Long recipeId = shortLinkService.decode(hash)

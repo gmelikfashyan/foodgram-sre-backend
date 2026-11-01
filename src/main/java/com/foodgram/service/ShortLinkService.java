@@ -5,7 +5,6 @@ import java.util.Optional;
 import org.hashids.Hashids;
 import org.springframework.stereotype.Service;
 
-/** Кодирование id рецепта в короткий хеш (совместимо с python-hashids, salt/min_length как в Django-версии). */
 @Service
 public class ShortLinkService {
 

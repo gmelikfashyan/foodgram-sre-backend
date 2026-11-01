@@ -1,0 +1,26 @@
+# Локальная разработка: собираем образы из исходников вместо загрузки из реестра.
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+# (в .env можно указать IMAGE_TAG=dev)
+services:
+  migrate:
+    build:
+      context: ../backend/src/main/resources/db/migration
+      dockerfile: ../../../../../../infra/migrations.Dockerfile
+  backend:
+    build:
+      context: ../backend
+    ports:
+      - "8000:8000"
+  frontend:
+    build:
+      context: ../frontend
+  gateway:
+    build:
+      context: ..
+      dockerfile: infra/Dockerfile
+  db:
+    ports:
+      - "5432:5432"
+  storage:
+    ports:
+      - "9000:9000"

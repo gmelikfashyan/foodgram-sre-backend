@@ -1,52 +1,46 @@
 package com.foodgram.service;
 
 import com.foodgram.config.AppProperties;
-import jakarta.annotation.PostConstruct;
+import com.foodgram.web.error.ApiException;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Iterator;
 import java.util.UUID;
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import software.amazon.awssdk.core.ResponseInputStream;
+import software.amazon.awssdk.core.exception.SdkException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
-/** Сохранение изображений, пришедших в base64 (data URI), в каталог media. */
 @Component
 public class ImageStorage {
+
+    private static final Logger log = LoggerFactory.getLogger(ImageStorage.class);
 
     private static final int MAX_BYTES = 10 * 1024 * 1024;
 
     public record DecodedImage(byte[] bytes, String extension) {
     }
 
-    private final Path root;
+    private final S3Client s3;
+    private final String bucket;
     private final String mediaUrl;
 
-    public ImageStorage(AppProperties props) {
-        this.root = Path.of(props.mediaRoot()).toAbsolutePath().normalize();
+    public ImageStorage(AppProperties props, S3Client s3) {
+        this.s3 = s3;
+        this.bucket = props.storage().bucket();
         this.mediaUrl = props.mediaUrl().endsWith("/") ? props.mediaUrl() : props.mediaUrl() + "/";
     }
 
-    @PostConstruct
-    void init() throws IOException {
-        Files.createDirectories(root);
-    }
-
-    public Path getRoot() {
-        return root;
-    }
-
-    /**
-     * Декодирует base64 (с префиксом data:image/...;base64, или без него) и проверяет,
-     * что это действительно изображение. Формат определяется по содержимому, а не по заголовку.
-     *
-     * @throws IllegalArgumentException если данные не являются корректным изображением
-     */
     public DecodedImage decode(String data) {
         if (data == null || data.isBlank()) {
             throw new IllegalArgumentException("Пустое изображение.");
@@ -98,32 +92,44 @@ public class ImageStorage {
         }
     }
 
-    /** Сохраняет изображение и возвращает URL вида /media/&lt;subdir&gt;/&lt;file&gt;. */
+
     public String save(String subdir, DecodedImage image) {
-        String fileName = UUID.randomUUID() + "." + image.extension();
-        Path dir = root.resolve(subdir).normalize();
-        try {
-            Files.createDirectories(dir);
-            Files.write(dir.resolve(fileName), image.bytes());
-        } catch (IOException e) {
-            throw new UncheckedIOException("Не удалось сохранить изображение", e);
-        }
-        return mediaUrl + subdir + "/" + fileName;
+        String key = subdir + "/" + UUID.randomUUID() + "." + image.extension();
+        s3.putObject(PutObjectRequest.builder()
+                        .bucket(bucket)
+                        .key(key)
+                        .contentType(contentType(image.extension()))
+                        .build(),
+                RequestBody.fromBytes(image.bytes()));
+        return mediaUrl + key;
     }
 
-    /** Удаляет ранее сохранённый файл по его URL (ошибки игнорируются). */
+    public ResponseInputStream<GetObjectResponse> open(String key) {
+        try {
+            return s3.getObject(b -> b.bucket(bucket).key(key));
+        } catch (NoSuchKeyException e) {
+            throw ApiException.notFound();
+        }
+    }
+
     public void delete(String url) {
         if (url == null || !url.startsWith(mediaUrl)) {
             return;
         }
-        Path file = root.resolve(url.substring(mediaUrl.length())).normalize();
-        if (!file.startsWith(root)) {
-            return;
-        }
+        String key = url.substring(mediaUrl.length());
         try {
-            Files.deleteIfExists(file);
-        } catch (IOException ignored) {
-            // не критично
+            s3.deleteObject(b -> b.bucket(bucket).key(key));
+        } catch (SdkException e) {
+            log.warn("Не удалось удалить объект {}: {}", key, e.getMessage());
         }
+    }
+
+    private static String contentType(String extension) {
+        return switch (extension) {
+            case "png" -> "image/png";
+            case "gif" -> "image/gif";
+            case "bmp" -> "image/bmp";
+            default -> "image/jpeg";
+        };
     }
 }

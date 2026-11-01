@@ -14,13 +14,27 @@
     <groupId>com.foodgram</groupId>
     <artifactId>foodgram-backend</artifactId>
     <version>1.0.0</version>
-    <name>foodgram-backend</name>
+    <name>com.foodgram-backend</name>
     <description>Foodgram backend (Spring Boot)</description>
 
     <properties>
         <java.version>21</java.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- 2.29.x: более новые версии SDK по умолчанию добавляют контрольные суммы,
+                 с которыми не все S3-совместимые хранилища работают без доп. настройки -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>2.29.52</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
@@ -37,6 +51,11 @@
         </dependency>
 
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
@@ -50,7 +69,11 @@
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
-        <!-- Короткие ссылки, совместимые с python-hashids из Django-версии -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>org.hashids</groupId>
             <artifactId>hashids</artifactId>
@@ -59,7 +82,7 @@
     </dependencies>
 
     <build>
-        <finalName>foodgram</finalName>
+        <finalName>com.foodgram</finalName>
         <plugins>
             <plugin>
                 <groupId>org.springframework.boot</groupId>

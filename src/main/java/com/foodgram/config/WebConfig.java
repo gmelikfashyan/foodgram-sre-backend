@@ -1,6 +1,6 @@
 package com.foodgram.config;
 
-import com.foodgram.service.ImageStorage;
+import com.foodgram.logging.RequestLoggingFilter;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -12,40 +12,21 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.Ordered;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-public class WebConfig implements WebMvcConfigurer {
+public class WebConfig {
 
-    private final ImageStorage imageStorage;
-    private final AppProperties props;
-
-    public WebConfig(ImageStorage imageStorage, AppProperties props) {
-        this.imageStorage = imageStorage;
-        this.props = props;
-    }
-
-    /** Раздача загруженных изображений по /media/** (на проде этим занимается nginx). */
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        String location = imageStorage.getRoot().toUri().toString();
-        if (!location.endsWith("/")) {
-            location += "/";
-        }
-        String url = props.mediaUrl().endsWith("/") ? props.mediaUrl() : props.mediaUrl() + "/";
-        registry.addResourceHandler(url + "**").addResourceLocations(location);
-    }
-
-    /**
-     * Фронтенд и спецификация API используют адреса со слэшем на конце (/api/users/me/),
-     * а Spring 6 их по умолчанию не сопоставляет. Фильтр прозрачно убирает завершающий слэш
-     * до Spring Security и DispatcherServlet.
-     */
     @Bean
     FilterRegistrationBean<TrailingSlashFilter> trailingSlashFilter() {
         FilterRegistrationBean<TrailingSlashFilter> bean = new FilterRegistrationBean<>(new TrailingSlashFilter());
         bean.setOrder(Ordered.HIGHEST_PRECEDENCE);
+        return bean;
+    }
+
+    @Bean
+    FilterRegistrationBean<RequestLoggingFilter> requestLoggingFilter() {
+        FilterRegistrationBean<RequestLoggingFilter> bean = new FilterRegistrationBean<>(new RequestLoggingFilter());
+        bean.setOrder(Ordered.HIGHEST_PRECEDENCE + 10);
         return bean;
     }
 
